@@ -17,3 +17,4 @@ TODO:
   - ergebnis
 
 - Strategie
+  - gemischte Strategien mit 100/3% Wahrscheinlichkeit für jede Strategie
