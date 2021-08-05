@@ -12,7 +12,9 @@ import socket
 import time
 import threading
 
-#server
+'''
+Server: Agent that listens for an incoming connection to play rock-paper-scissors with
+'''
 class GameInitiatorAgent(InverseKinematicsAgent):
     HOST = '127.0.0.1'  #localhost
     PORT = 9000
@@ -20,7 +22,9 @@ class GameInitiatorAgent(InverseKinematicsAgent):
     def __init__(self):
         return
 
-    #open a port and server for an enemy player to connect to
+    '''
+    start a game socket for game communication
+    '''
     def open_lobby(self, host=HOST, port=PORT):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.bind((host, port))
@@ -34,7 +38,7 @@ class GameInitiatorAgent(InverseKinematicsAgent):
                     #TODO: evaluate incoming messages
 
                     data = conn.recv(512)
-                    print('Received data: ' + repr(data))
+                    print('Server:Received data: ' + repr(data))
                     if not data:
                         break
                     conn.sendall(data)
@@ -43,11 +47,16 @@ class GameInitiatorAgent(InverseKinematicsAgent):
         print('Closed rock-paper-scissors lobby')
         return
 
+'''
+Client: Agent that connects to the server to play a game of rock-paper-scissors
+'''
 class ParticipantAgent(InverseKinematicsAgent):
     def __init__(self):
         return
 
-    #join an existing server lobby with default ip and port
+    '''
+    connect to the server's socket to play rock-paper-scissors
+    '''
     def join_lobby(self, host='127.0.0.1', port=9000):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect((host, port))
@@ -56,14 +65,16 @@ class ParticipantAgent(InverseKinematicsAgent):
 
             #TODO: Interaction protocol
 
-        print('Received: ' + repr(data))
+        print('Client:Received: ' + repr(data))
         return
 
+'''
+Call functions of the two players
+Sync the network communication with simspark robot animations
+Functions can be used in the UI
+'''
 class GameManager:
-    '''
-    Manages Rock-Paper-Scissors games between agents
-    Functions can be used by buttons in UI
-    '''
+
 
     def __init__(self):
         # initialize Agents
@@ -83,6 +94,21 @@ class GameManager:
         self.alice.join_lobby()
         print("Game finished.")
         return
+
+    '''
+    play 'rock', 'paper' or 'scissors'
+    '''
+    def play(self, symbol):
+        #TODO: Play Keyframe and send signals afterwards
+        if symbol == 'rock':
+            return
+        elif symbol == 'paper':
+            return
+        elif symbol == 'scissors':
+            return
+        else:
+            print('Unknown symbol: ' + str(symbol) + ", play either 'rock', 'paper' or 'scissors'")
+
 
 if __name__ == '__main__':
     # agent.__dict__
