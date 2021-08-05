@@ -35,13 +35,17 @@ class GameInitiatorAgent(InverseKinematicsAgent):
                 print('Connected by', addr)
                 while True: #receive data and do something with it
 
-                    #TODO: evaluate incoming messages
+
 
                     data = conn.recv(512)
                     print('Server:Received data: ' + repr(data))
                     if not data:
                         break
                     conn.sendall(data)
+
+                # TODO: evaluate incoming messages
+                #while True:
+                    #server loop
 
 
         print('Closed rock-paper-scissors lobby')
@@ -61,11 +65,11 @@ class ParticipantAgent(InverseKinematicsAgent):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect((host, port))
             s.sendall(b'Hello I am a lobot beep bop!')
-            data = s.recv(1024)
+            data = s.recv(512)
 
             #TODO: Interaction protocol
 
-        print('Client:Received: ' + repr(data))
+        print('Client: Received: ' + repr(data))
         return
 
 '''
@@ -80,6 +84,7 @@ class GameManager:
         # initialize Agents
         self.bob = GameInitiatorAgent()
         self.alice = ParticipantAgent()
+        #TODO: position and rotation in front of each other
         return
 
     #start a game between bob and alice
