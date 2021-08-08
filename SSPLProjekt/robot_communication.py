@@ -36,7 +36,7 @@ class GameServer():
     def __init__(self):
         self.sel = selectors.DefaultSelector()
         self.lobby_full = False
-        self.lobby = [] #id, sock
+        self.lobby = [] #(id, socket)
         self.plays = [] #id, play
         self.plays_submitted = False
         self.done = 0

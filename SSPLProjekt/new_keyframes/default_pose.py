@@ -13,15 +13,15 @@ def default_pose():
 
 	names.append('LShoulderPitch')
 	times.append([2.0])
-	keys.append([[1.36, [0, 1, 2], [0, 1, 2]]])
+	keys.append([[1.49, [0, 1, 2], [0, 1, 2]]])
 
 	names.append('LShoulderRoll')
 	times.append([2.0])
-	keys.append([[0.04, [0, 1, 2], [0, 1, 2]]])
+	keys.append([[0.0, [0, 1, 2], [0, 1, 2]]])
 
 	names.append('LElbowYaw')
 	times.append([2.0])
-	keys.append([[0.0, [0, 1, 2], [0, 1, 2]]])
+	keys.append([[-1.15, [0, 1, 2], [0, 1, 2]]])
 
 	names.append('LElbowRoll')
 	times.append([2.0])
@@ -53,15 +53,15 @@ def default_pose():
 
 	names.append('RShoulderPitch')
 	times.append([2.0])
-	keys.append([[1.2, [0, 1, 2], [0, 1, 2]]])
+	keys.append([[1.49, [0, 1, 2], [0, 1, 2]]])
 
 	names.append('RShoulderRoll')
 	times.append([2.0])
-	keys.append([[0.0, [0, 1, 2], [0, 1, 2]]])
+	keys.append([[0.07, [0, 1, 2], [0, 1, 2]]])
 
 	names.append('RElbowYaw')
 	times.append([2.0])
-	keys.append([[0.0, [0, 1, 2], [0, 1, 2]]])
+	keys.append([[1.07, [0, 1, 2], [0, 1, 2]]])
 
 	names.append('RElbowRoll')
 	times.append([2.0])
@@ -92,18 +92,18 @@ def default_pose():
 	keys.append([[0.0, [0, 1, 2], [0, 1, 2]]])
 
 	names.append('LWristYaw')
-	times.append([])
-	keys.append([])
+	times.append([2.0])
+	keys.append([[0, [0, 1, 2], [0, 1, 2]]])
 
 	names.append('LHand')
-	times.append([])
-	keys.append([])
+	times.append([2.0])
+	keys.append([[0, [0, 1, 2], [0, 1, 2]]])
 
 	names.append('RWristYaw')
-	times.append([])
-	keys.append([])
+	times.append([2.0])
+	keys.append([[0, [0, 1, 2], [0, 1, 2]]])
 
 	names.append('RHand')
-	times.append([])
-	keys.append([])
+	times.append([2.0])
+	keys.append([[0, [0, 1, 2], [0, 1, 2]]])
 	return names, times, keys
