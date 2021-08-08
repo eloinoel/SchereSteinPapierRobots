@@ -36,8 +36,9 @@ class GameServer():
     def __init__(self):
         self.sel = selectors.DefaultSelector()
         self.lobby_full = False
-        self.lobby = []
-        self.plays = []
+        self.lobby = [] #id, sock
+        self.plays = [] #id, play
+        self.plays_submitted = False
         self.done = 0
         self.setup_listen_socket()
         return
@@ -89,15 +90,6 @@ class GameServer():
         data = key.data
         if mask & selectors.EVENT_READ:
             recv_data = sock.recv(1)
-            '''
-            if recv_data:
-                data.outb += recv_data'''
-            '''
-            print('DEBUG msg: ' + repr(bin(ord(recv_data))))
-            print('DEBUG shift: ' + repr(bin((recv_data[0] >> 4))))
-            print('DEBUG and: ' + repr(bin((recv_data[0] >> 4) & DONE_FLAG)))
-            print('DEBUG and: ' + repr(bin((recv_data[0] >> 4) & PLAY_FLAG)))
-            '''
             if recv_data:
                 if (recv_data[0] >> 4) == CONNECT_FLAG:
                     # accept players into the lobby and start the game if full
@@ -105,7 +97,7 @@ class GameServer():
 
                 elif (recv_data[0] >> 4) == PLAY_FLAG:
                     # receive plays of the participants and tell them to start animation
-                    self.eval_play_message(recv_data)
+                    self.eval_play_message(sock, recv_data)
 
                 elif (recv_data[0] >> 4) == DONE_FLAG:
                     # send results and close connections
@@ -115,61 +107,60 @@ class GameServer():
                     print('Server: received unknown message: ' + str(recv_data[0]))
 
             else:  # client closed connection
-                print('One participant disconnected, resetting...')
+                print(c.OKGREEN + 'One participant disconnected, resetting...' + c.ENDC)
                 self.reset_everything()
-
-        '''if mask & selectors.EVENT_WRITE:
-            if data.outb:
-                #TODO
-                print('echoing ', repr(data.outb), ' to ', data.addr)
-                sent = sock.send(data.outb)
-                data.outb = data.outb[sent:]'''
-
         return
 
     def eval_connect_message(self, sock, recv_data):
-        print('Server: received Connect')
+        print(c.OKGREEN + 'Server: received Connect' + c.ENDC)
         if self.lobby_full:  # send refuse
             refuse_msg = 32  # 0010 0000
-            print('Server: sending Refuse')
+            print(c.OKGREEN + 'Server: sending Refuse' + c.ENDC)
             sock.send(refuse_msg.to_bytes(1, 'big'))
         else:
             id = (recv_data[0] >> 2) & 3
             self.lobby += [(id, sock)]
             accept_msg = 40  # 0010 1000
-            print('Server: sending accept to client with id' + str(id))
+            print(c.OKGREEN + 'Server: sending accept to client with id: ' + str(id) + c.ENDC)
             sock.send(accept_msg.to_bytes(1, 'big'))
             # start game if we have 2 players
             if len(self.lobby) >= 2:
                 self.lobby_full = True
                 ready_msg = 48  # 0011 0000
-                print('Server: sending ready to clients...')
+                print(c.OKGREEN + 'Server: sending ready to clients...\n' + c.ENDC)
                 for player in self.lobby:
                     player[1].send(ready_msg.to_bytes(1, 'big'))
-
         return
                     
-    def eval_play_message(self, recv_data):
+    def eval_play_message(self, sock, recv_data):
+        # block unwanted behavior
+        if self.plays_submitted:
+            refuse_msg = 32
+            print(c.OKGREEN + 'Server sending Refuse' + c.ENDC)
+            sock.send(refuse_msg.to_bytes(1, 'big'))
+            return
+
+        # evaluate message
         id = (recv_data[0] >> 2) & 3
         play_tmp = recv_data[0] & 3
-        print('Server: received Play (' + str(id) + ', ' + str(play_tmp) + ')')
+        print(c.OKGREEN + 'Server: received Play (' + str(id) + ', ' + str(play_tmp) + ')' + c.ENDC)
         self.plays += [(id, play_tmp)]
         # both players sent their plays for this turn
         if len(self.plays) >= 2:
-            print('DEBUG plays')
-            print(self.plays)
+            self.plays_submitted = True
             start_message = 80
-            print('Server: sending start to clients...')
+            print(c.OKGREEN + 'Server: sending start to clients...\n' + c.ENDC)
             for player in self.lobby:
                 player[1].send(start_message.to_bytes(1, 'big'))
         return
 
     def eval_done_message(self):
-        print('Server: received Done, sending results...')
+        print(c.OKGREEN + 'Server: received Done' + c.ENDC)
         self.done += 1
-        # calculate result
+        # calculate and send result when received done from both players (doesn't verify id's)
         if self.done >= 2:
             result_message = 112
+            print(c.OKGREEN + 'Server: sending results...\n' + c.ENDC)
             # tie
             if self.plays[0][1] == self.plays[1][1]:
                 result_message = result_message | 8
@@ -178,45 +169,57 @@ class GameServer():
             # first player wins
             elif (self.plays[0][1] > self.plays[1][1]) or (self.plays[0][1] == 0 and self.plays[1][1] == 2):
                 id_player0 = self.plays[0][0]
-                id_player1 = self.plays[1][1]
+                id_player1 = self.plays[1][0]
                 socket_player0 = self.get_socket_from_id(id_player0)
                 socket_player1 = self.get_socket_from_id(id_player1)
 
                 if socket_player0 != None and socket_player1 != None:
                     win_message = result_message | 4
                     lose_message = result_message
+                    '''print('Player 0 id:' + str(id_player0))
+                    print(repr(bin(win_message)))
+                    print(repr(bin(lose_message)))'''
                     socket_player0.send(win_message.to_bytes(1, 'big'))
                     socket_player1.send(lose_message.to_bytes(1, 'big'))
                 else:
-                    print('Server: Error sending result, sockets NULL')
+                    print('Server: Error sending result, sockets for id are NULL')
+                    print(repr(id_player0) + " " + repr(id_player1))
+                    print(self.lobby)
 
 
             elif (self.plays[0][1] < self.plays[1][1]) or (self.plays[0][1] == 2 and self.plays[1][1] == 0):
                 id_player0 = self.plays[0][0]
-                id_player1 = self.plays[1][1]
+                id_player1 = self.plays[1][0]
                 socket_player0 = self.get_socket_from_id(id_player0)
                 socket_player1 = self.get_socket_from_id(id_player1)
 
                 if socket_player0 != None and socket_player1 != None:
                     win_message = result_message | 4
                     lose_message = result_message
+                    '''print('Player 0 id:' + str(id_player0))
+                    print(repr(bin(win_message)))
+                    print(repr(bin(lose_message)))'''
                     socket_player0.send(lose_message.to_bytes(1, 'big'))
                     socket_player1.send(win_message.to_bytes(1, 'big'))
                 else:
-                    print('Server: Error sending result, sockets NULL')
+                    print('Server: Error sending result, sockets for id are NULL')
+                    print(repr(id_player0) + " " + repr(id_player1))
+                    print(self.lobby)
 
             else:
                 print('Server: Calculating result went not as expected')
 
             # close connections and delete stuff from data structures
+            time.sleep(0.5)
             self.reset_everything()
 
             return
 
     '''
-    reset
+    reset the game server for a new round (reset button in GUI)
     '''
     def reset_everything(self):
+        print(c.OKGREEN + 'Server: reset values' + c.ENDC)
         for player in self.lobby:
             self.sel.unregister(player[1])
             player[1].close()
@@ -224,6 +227,7 @@ class GameServer():
         self.lobby_full = False
         self.lobby = []
         self.plays = []
+        self.plays_submitted = False
         self.done = 0
 
 
@@ -237,15 +241,23 @@ class ParticipantAgent(InverseKinematicsAgent):
     REMOTEHOST = '127.0.0.1'  # localhost
     REMOTEPORT = 9000
 
-    def __init__(self, id):
-        self.id = id
+    def __init__(self, simspark_ip='localhost',
+                 simspark_port=3100,
+                 teamname='DAInamite',
+                 player_id=0,
+                 sync_mode=True):
+        super(InverseKinematicsAgent, self).__init__(simspark_ip, simspark_port, teamname, player_id, sync_mode)
+        self.id = player_id
         self.nextMove = 'undecided_move'
+        self.move_GUI = 'undecided_move'
+        self.autoPlay = True
         return
+
 
     '''
     execute the Participant Agent
     '''
-    def run(self):
+    def run_client(self):
         s = self.setup_socket()
         self.join_lobby(s, '127.0.0.1', 9000)
         self.decide(s)
@@ -254,7 +266,7 @@ class ParticipantAgent(InverseKinematicsAgent):
         return
 
     def setup_socket(self):
-        print("Client "+str(self.id)+" opening socket")
+        print(c.OKBLUE + "Client "+str(self.id)+" opening socket" + c.ENDC)
         return socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     '''
@@ -264,19 +276,19 @@ class ParticipantAgent(InverseKinematicsAgent):
 
         # connect to server
         s.connect((host, port))
-        print("Client "+str(self.id)+" connected to host "+str(host)+" on port "+str(port))
+        print(c.OKBLUE + "Client "+str(self.id)+" connected to host "+str(host)+" on port "+str(port) + c.ENDC)
         # send connection
         msg = composeMessage(CONNECT_FLAG, self.id)
-        print("Client "+str(self.id)+" sending CONNECT with ID: " + str(self.id))
+        print(c.OKBLUE + "Client "+str(self.id)+" sending CONNECT with ID: " + str(self.id) + c.ENDC)
         s.send(msg)
         # wait for accept/refuse
         flag, bool = decomposeMessage(s.recv(1))
 
-        print("Client "+str(self.id)+" received: " + flag_toString(flag) + " " + str(bool == 1))
+        print(c.OKBLUE + "Client "+str(self.id)+" received: " + flag_toString(flag) + " " + str(bool == 1) + c.ENDC)
         # TODO: Handle Refuse/No response
         if(bool != 1):
-            print("Client "+str(self.id)+" REFUSED")
-            print("Client "+str(self.id)+" terminating...")
+            print(c.WARNING + "Client "+str(self.id)+" REFUSED" + c.ENDC)
+            print(c.WARNING + "Client "+str(self.id)+" terminating..." + c.ENDC)
             exit(-1)
         return
 
@@ -287,25 +299,33 @@ class ParticipantAgent(InverseKinematicsAgent):
         # blocking wait for servers call for move
         while True:
             flag = decomposeMessage(s.recv(1))
-            print("Client " + str(self.id) + " received: " + flag_toString(flag))
+            print(c.OKBLUE + "Client " + str(self.id) + " received: " + flag_toString(flag) + c.ENDC)
             if (flag == READY_FLAG): break
             # TODO: Handle Abort/No response
 
-        symbol = -1  # 'undecided_move'
-        # TODO: Play Keyframe and send signals afterwards
-        r = random.randrange(0.0, 1.0)
-        if (r < 0.33):
-            symbol = 0
-            self.nextMove = 'rock'
-        elif (r < 0.67):
-            symbol = 1
-            self.nextMove = 'paper'
+        if(self.autoPlay):
+            symbol = -1  # 'undecided_move'
+            # TODO: Play Keyframe and send signals afterwards
+            r = random.random()
+            if (r < 0.33):
+                self.nextMove = "Rock"
+            elif (r < 0.67):
+                self.nextMove = "Paper"
+            else:
+                self.nextMove = "Scissors"
+        # take input from GUI
         else:
-            symbol = 2
-            self.nextMove = 'scissors'
+            # Wait until self.move_GUI is set
+            while True:
+                if (self.move_GUI != 'undecided_move'):
+                    break
+            self.nextMove = self.move_GUI
+            # TODO: reset self.move_GUI for each new round of rock, paper, scissors
 
+
+        symbol = string_toSymbol(self.nextMove)
         msg = composeMessage(PLAY_FLAG, self.id, 0, symbol)
-        print("Client " + str(self.id) + " sending PLAY with ID: " + str(self.id) + ", MOVE: " + symbol_toString(symbol))
+        print(c.OKBLUE + "Client " + str(self.id) + " sending PLAY with ID: " + str(self.id) + ", MOVE: " + symbol_toString(symbol) + c.ENDC)
         s.send(msg)
 
     '''
@@ -315,20 +335,20 @@ class ParticipantAgent(InverseKinematicsAgent):
         # blocking wait for servers start gesture
         while True:
             flag = decomposeMessage(s.recv(1))
-            print("Client " + str(self.id) + " received: " + flag_toString(flag))
+            print(c.OKBLUE + "Client " + str(self.id) + " received: " + flag_toString(flag) + c.ENDC)
             if(flag == START_FLAG): break
             # TODO: Handle No response
 
-        if(self.nextMove == 'rock'):
+        if(self.nextMove == "Rock"):
             print("TODO: set rock-keyframes")
-        elif(self.nextMove == 'paper'):
+        elif(self.nextMove == "Paper"):
             print("TODO: set paper-keyframes")
-        elif(self.nextMove == 'scissors'):
+        elif(self.nextMove == "Scissors"):
             print("TODO: set scissors-keyframes")
         time.sleep(5)
 
         msg = composeMessage(DONE_FLAG)
-        print("Client " + str(self.id) + " sending DONE")
+        print(c.OKBLUE + "Client " + str(self.id) + " sending DONE" + c.ENDC)
         #print(repr(bin(ord(msg))))
         s.send(msg)
 
@@ -336,10 +356,27 @@ class ParticipantAgent(InverseKinematicsAgent):
     show happiness/sadness for a win/loss
     '''
     def react(self, s):
-        flag, won = decomposeMessage(s.recv(1))
-        print("Client " + str(self.id) + " received:" + flag_toString(flag) + " WON: " + str(won==1) + " TIE: " + str(won==2))
+        while True:
+            flag, won = decomposeMessage(s.recv(1))
+            #print("Client " + str(self.id) + " received: " + flag_toString(flag))
+            if(flag == RESULT_FLAG): break
+        print(c.OKBLUE + "Client " + str(self.id) + " received:" + flag_toString(flag) + " WON: " + str(won==1) + " TIE: " + str(won==2) + c.ENDC)
 
         # TODO: Play win/lose keyframes
+        return
+
+    '''
+    User clicks on a move to play in the GUI
+    '''
+    def setMove(self, move):
+        self.move = move
+        return
+
+    '''
+    Whether a move is selected randomly or by the player in the GUI
+    '''
+    def setAutoPlay(self, boolean):
+        self.autoPlay = boolean
         return
 
 '''
@@ -349,12 +386,29 @@ Functions can be used in the UI
 '''
 class GameManager:
 
-
     def __init__(self):
         # initialize Agents
         self.server = GameServer()
-        self.bob = ParticipantAgent(1)
-        self.alice = ParticipantAgent(2)
+
+
+        self.bob = ParticipantAgent(player_id=1)
+        self.bob.start()
+        '''try:
+            thread2 = threading.Thread(target=self.bob.run)
+            thread2.start()
+        except KeyboardInterrupt:
+            print('Interrupted Client')'''
+
+
+        self.alice = ParticipantAgent(player_id=2)
+        self.alice.start()
+        '''try:
+            thread3 = threading.Thread(target=self.alice.run)
+            thread3.start()
+        except KeyboardInterrupt:
+            print('Interrupted Client')'''
+
+
         #TODO: position and rotation in front of each other
         return
 
@@ -368,15 +422,17 @@ class GameManager:
             print('Interrupted server-lobby')
         time.sleep(0.01)
 
+
         try:
-            thread2 = threading.Thread(target=self.bob.run)
-            thread2.start()
+            thread4 = threading.Thread(target=self.bob.run_client)
+            thread4.start()
         except KeyboardInterrupt:
             print('Interrupted Client')
 
+
         try:
-            thread3 = threading.Thread(target=self.alice.run)
-            thread3.start()
+            thread5 = threading.Thread(target=self.alice.run_client)
+            thread5.start()
         except KeyboardInterrupt:
             print('Interrupted Client')
 
@@ -406,6 +462,7 @@ def composeMessage(flag, id=0, bool=0, move=0):
 
 def decomposeMessage(msg):
     msg = int.from_bytes(msg, 'big')
+    #print(repr(bin(msg)))
     flag = (msg & 240) >> 4
     if(flag == CONNECT_FLAG):
         id = (msg & 12) >> 2
@@ -452,7 +509,29 @@ def symbol_toString(symbol):
     elif(symbol == 2):
         return "Scissors"
     else:
-        return "NOTFOUND"    
+        return "NOTFOUND"
+
+def string_toSymbol(string):
+    if(string == "Rock"):
+        return 0
+    elif(string == "Paper"):
+        return 1
+    elif(string == "Scissors"):
+        return 2
+    else:
+        return "NOTFOUND"
+
+class c:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKCYAN = '\033[96m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+    BACKGROUND = '\033[94;43m'
 
 if __name__ == '__main__':
     # agent.__dict__
