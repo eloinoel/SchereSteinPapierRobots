@@ -3,3 +3,5 @@ from .Paper import Paper
 from .Scissors import Scissors
 from .Rock import Rock
 from .OpenPaper import OpenPaper
+
+from .Sad import Sad
