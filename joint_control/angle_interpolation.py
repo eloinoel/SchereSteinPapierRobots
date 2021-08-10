@@ -35,6 +35,7 @@ class AngleInterpolationAgent(PIDAgent):
                  sync_mode=True):
         super(AngleInterpolationAgent, self).__init__(simspark_ip, simspark_port, teamname, player_id, sync_mode)
         self.keyframes = ([], [], [])
+        self.start_time = self.perception.time
 
     def think(self, perception):
         target_joints = self.angle_interpolation(self.keyframes, perception)
@@ -44,7 +45,14 @@ class AngleInterpolationAgent(PIDAgent):
 
     def angle_interpolation(self, keyframes, perception):
         target_joints = {}
-        time = perception.time
+        time = perception.time - self.start_time
+
+        # if animation is playing
+        if len(keyframes[1]) != 0:
+            anim_time_rps = max(keyframes[1][0])
+            # animation is done playing
+            if (time >= anim_time_rps):
+                self.keyframes = ([], [], [])
 
         for l in range(len(keyframes[0])):
 

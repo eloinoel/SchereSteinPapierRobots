@@ -15,6 +15,7 @@ import socket
 import selectors
 import time
 import threading
+from new_keyframes import *
 
 CONNECT_FLAG = 1
 REFUSE_ACCEPT_FLAG = 2
@@ -259,10 +260,12 @@ class ParticipantAgent(InverseKinematicsAgent):
     '''
     def run_client(self):
         s = self.setup_socket()
+
         self.join_lobby(s, '127.0.0.1', 9000)
         self.decide(s)
         self.play(s)
         self.react(s)
+        self.leave_lobby(s)
         return
 
     def setup_socket(self):
@@ -339,13 +342,8 @@ class ParticipantAgent(InverseKinematicsAgent):
             if(flag == START_FLAG): break
             # TODO: Handle No response
 
-        if(self.nextMove == "Rock"):
-            print("TODO: set rock-keyframes")
-        elif(self.nextMove == "Paper"):
-            print("TODO: set paper-keyframes")
-        elif(self.nextMove == "Scissors"):
-            print("TODO: set scissors-keyframes")
-        time.sleep(5)
+        # Set keyframes
+        self.setKeyframe(self.nextMove)
 
         msg = composeMessage(DONE_FLAG)
         print(c.OKBLUE + "Client " + str(self.id) + " sending DONE" + c.ENDC)
@@ -362,14 +360,28 @@ class ParticipantAgent(InverseKinematicsAgent):
             if(flag == RESULT_FLAG): break
         print(c.OKBLUE + "Client " + str(self.id) + " received:" + flag_toString(flag) + " WON: " + str(won==1) + " TIE: " + str(won==2) + c.ENDC)
 
-        # TODO: Play win/lose keyframes
+        #Play win/lose keyframes
+        if(won == 2 or won != 1):
+            # Loser
+            self.setKeyframe('Lose')
+        elif(won == 1):
+            # Winner
+            self.setKeyframe('Win')
+        else:
+            print("Client Error: didn't know which animation to play")
+        return
+
+    def leave_lobby(self, s):
+        print(c.OKBLUE + "Client " + str(self.id) + " closing socket" + c.ENDC)
+        s.close()
+        self.nextMove = 'undecided_move'
         return
 
     '''
     User clicks on a move to play in the GUI
     '''
     def setMove(self, move):
-        self.move = move
+        self.move_GUI = move
         return
 
     '''
@@ -378,6 +390,45 @@ class ParticipantAgent(InverseKinematicsAgent):
     def setAutoPlay(self, boolean):
         self.autoPlay = boolean
         return
+
+    def setKeyframe(self, keyframe):
+        #TODO: reset time of keyframes
+        while(self.keyframes != ([], [], [])):
+            time.sleep(0.1)
+
+        self.start_time = self.perception.time
+
+        if (keyframe == "Rock"):
+            print(c.OKBLUE + '** Robot ' + str(self.id) + ' plays cock**' + c.ENDC)
+            self.keyframes = Rock()
+            #time.sleep(5.2)
+            #self.keyframes = ([], [], [])
+        elif (keyframe == "Paper"):
+            print(c.OKBLUE + '** Robot ' + str(self.id) + ' plays paper**' + c.ENDC)
+            self.keyframes = OpenPaper()
+            #time.sleep(5.2)
+            #self.keyframes = ([], [], [])
+        elif (keyframe == "Scissors"):
+            print(c.OKBLUE + '** Robot ' + str(self.id) + ' plays scissors**' + c.ENDC)
+            self.keyframes = Scissors()
+            #time.sleep(5.2)
+            #self.keyframes = ([], [], [])
+        elif (keyframe == "Win"):
+            print(c.OKBLUE + '** Robot ' + str(self.id) + ' won!**' + c.ENDC)
+            self.keyframes = Win()
+            #time.sleep(3.2)
+            #self.keyframes = ([], [], [])
+        elif (keyframe == "Lose"):
+            print(c.OKBLUE + '** Robot ' + str(self.id) + ' is sad :(**' + c.ENDC)
+            self.keyframes = Sad()
+            #time.sleep(3.2)
+            #self.keyframes = ([], [], [])
+        else:
+            print(c.OKBLUE + '** Robot ' + str(self.id) + 'is doing nothing**' + c.ENDC)
+            self.keyframes = default_pose()
+
+
+
 
 '''
 Call functions of the two players
@@ -538,3 +589,4 @@ if __name__ == '__main__':
     # dir(agent)
     game = GameManager()
     game.start_game()
+
