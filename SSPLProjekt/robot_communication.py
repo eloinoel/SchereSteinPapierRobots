@@ -402,7 +402,7 @@ class ParticipantAgent(InverseKinematicsAgent):
         self.start_time = self.perception.time
 
         if (keyframe == "Rock"):
-            print(c.OKBLUE + '** Robot ' + str(self.id) + ' plays cock**' + c.ENDC)
+            print(c.OKBLUE + '** Robot ' + str(self.id) + ' plays rock**' + c.ENDC)
             self.keyframes = Rock()
             #time.sleep(5.2)
             #self.keyframes = ([], [], [])
