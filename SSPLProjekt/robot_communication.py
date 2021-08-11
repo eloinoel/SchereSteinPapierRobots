@@ -17,6 +17,9 @@ import time
 import threading
 from new_keyframes import *
 
+import PySimpleGUI as sg
+
+
 CONNECT_FLAG = 1
 REFUSE_ACCEPT_FLAG = 2
 READY_FLAG = 3
@@ -427,7 +430,114 @@ class ParticipantAgent(InverseKinematicsAgent):
             print(c.OKBLUE + '** Robot ' + str(self.id) + 'is doing nothing**' + c.ENDC)
             self.keyframes = default_pose()
 
+'''
+GUI for graphical interaction with the server and clients
+'''
+class GUI():
+    def __init__(self, gameManager):
+        self.GameManager = gameManager
 
+    def set_layout(self):
+        image_schere = './ButtonGraphics/schere.png'
+        image_stein = './ButtonGraphics/stein.png'
+        image_papier = './ButtonGraphics/papier.png'
+        #image_start = './ButtonGraphics/start.png'
+
+        first_column = [
+            #[sg.Button(button_color=sg.TRANSPARENT_BUTTON,image_filename=image_start,image_size=(70, 70),image_subsample=8,size = (7,7))],
+            #[sg.Button(button_text="Create Lobby",)],
+
+
+            [sg.Text("Autoplay:"),sg.Button('On',size=(3,1),button_color=('white', 'green'),key='_B_')],
+            [sg.Text(text="Select Move"),],
+            [
+                sg.Button(
+                    button_color=sg.TRANSPARENT_BUTTON,image_filename=image_schere,
+                    image_size=(50,50),image_subsample=12,disabled=True,key="_scissor_"),
+                sg.Button(button_color=sg.TRANSPARENT_BUTTON,image_filename=image_stein,
+                          image_size=(50,50),image_subsample=12,disabled=True,key="_rock_"),
+                sg.Button(button_color=sg.TRANSPARENT_BUTTON,image_filename=image_papier,
+                          image_size=(50,50),image_subsample=12,disabled=True,key="_paper_")
+            ]
+        ]
+
+        secound_column = [
+            [sg.Text(text="Agents joined:")],
+            [sg.Text(size=(3,1),key="_jAgents_")],
+            [sg.Button(button_text="Play Game",key="_pGame_")],
+            [sg.Text(text="Game Result:")],
+            [
+                sg.Text(text="Player 1:\t"),
+                sg.Text(key="_pOne_",size=(10,1)),
+                sg.Text(text="Player 2:\t"),
+                sg.Text(key="_pTwo_",size=(10,1))
+            ]
+        ]
+        layout = [
+            [
+                sg.Column(first_column),
+                sg.VSeparator(),
+                sg.Column(secound_column),
+            ]
+        ]
+        return layout
+
+    def set_window(self):
+        # create the window
+        window = sg.Window("Play-GUI", self.layout, size=(600, 200), finalize=True)
+        return window
+
+    def set_agents_joined(self,agents_joined):
+        self.window["_jAgents_"].Update(value=agents_joined)
+
+    def set_pOne(self, value):
+        self.window["_pOne_"].Update(value=value)
+
+    def set_pTwo(self, value):
+        self.window["_pTwo_"].Update(value=value)
+
+    def event_loop(self):
+        down = True
+        self.layout = self.set_layout()
+        self.window = self.set_window()
+        while True:
+            event, values = self.window.read()
+            # End program if user closes window or press the OK button
+            if event in (None, 'Exit'):
+                break
+            elif event == sg.WIN_CLOSED:
+                break
+            elif event == '_B_':
+                down = not down
+                self.window.Element('_B_').Update(('Off', 'On')[down], button_color=(('white', ('red', 'green')[down])))
+                self.window["_scissor_"].Update(disabled=down)
+                self.window["_rock_"].Update(disabled=down)
+                self.window["_paper_"].Update(disabled=down)
+                self.GameManager.bob.setAutoPlay(down)
+            elif event == '_pGame_':
+                print("Start Game")
+                self.GameManager.start_game()
+                self.window["_scissor_"].Update(disabled=False)
+                self.window["_paper_"].Update(disabled=False)
+                self.window["_rock_"].Update(disabled=False)
+
+            elif event == '_rock_':
+                print("Rock")
+                self.GameManager.bob.setMove('Rock')
+                self.window["_scissor_"].Update(disabled=True)
+                self.window["_paper_"].Update(disabled=True)
+            elif event == '_paper_':
+                print("Paper")
+                self.GameManager.bob.setMove('Paper')
+                self.window["_scissor_"].Update(disabled=True)
+                self.window["_rock_"].Update(disabled=True)
+            elif event == '_scissor_':
+                print("Scissors")
+                self.GameManager.bob.setMove('Scissors')
+                self.window["_rock_"].Update(disabled=True)
+                self.window["_paper_"].Update(disabled=True)
+
+        self.window.close()
 
 
 '''
@@ -440,6 +550,7 @@ class GameManager:
     def __init__(self):
         # initialize Agents
         self.server = GameServer()
+        self.gui = GUI(self)
 
 
         self.bob = ParticipantAgent(player_id=1)
@@ -462,6 +573,14 @@ class GameManager:
 
         #TODO: position and rotation in front of each other
         return
+
+    def start_gui(self):
+        try:
+            thread_gui = threading.Thread(target=self.gui.event_loop)
+            thread_gui.start()
+            time.sleep(1)
+        except KeyboardInterrupt:
+            print('Interrupted gui start')
 
     #start a game between bob and alice
     def start_game(self):
@@ -588,5 +707,6 @@ if __name__ == '__main__':
     # agent.__dict__
     # dir(agent)
     game = GameManager()
+    game.start_gui()
     game.start_game()
 
