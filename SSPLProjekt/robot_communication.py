@@ -44,8 +44,12 @@ class GameServer():
         self.plays = [] #id, play
         self.plays_submitted = False
         self.done = 0
+        self.gui = None
         self.setup_listen_socket()
         return
+
+    def set_gui(self, gui):
+        self.gui = gui
 
     '''
     socket to receive messages on
@@ -127,6 +131,11 @@ class GameServer():
             accept_msg = 40  # 0010 1000
             print(c.OKGREEN + 'Server: sending accept to client with id: ' + str(id) + c.ENDC)
             sock.send(accept_msg.to_bytes(1, 'big'))
+
+            #Players joined in GUI
+            if self.gui != None:
+                self.gui.set_agents_joined(len(self.lobby))
+
             # start game if we have 2 players
             if len(self.lobby) >= 2:
                 self.lobby_full = True
@@ -165,6 +174,12 @@ class GameServer():
         if self.done >= 2:
             result_message = 112
             print(c.OKGREEN + 'Server: sending results...\n' + c.ENDC)
+
+            #show result in GUI
+            if self.gui != None:
+                self.gui.set_pOne(self.numberToPlay(self.plays[0][1]))
+                self.gui.set_pTwo(self.numberToPlay(self.plays[1][1]))
+
             # tie
             if self.plays[0][1] == self.plays[1][1]:
                 result_message = result_message | 8
@@ -215,7 +230,11 @@ class GameServer():
 
             # close connections and delete stuff from data structures
             time.sleep(0.5)
+
             self.reset_everything()
+            #update gui
+            if self.gui != None:
+                self.gui.set_agents_joined(len(self.lobby))
 
             return
 
@@ -233,6 +252,16 @@ class GameServer():
         self.plays = []
         self.plays_submitted = False
         self.done = 0
+
+    def numberToPlay(self, play):
+        if(play == 0):
+            return 'Rock'
+        elif(play == 1):
+            return 'Paper'
+        elif(play == 2):
+            return 'Scissors'
+        else:
+            return ' '
 
 
 
@@ -255,8 +284,11 @@ class ParticipantAgent(InverseKinematicsAgent):
         self.nextMove = 'undecided_move'
         self.move_GUI = 'undecided_move'
         self.autoPlay = True
+        self.gui = None
         return
 
+    def setGui(self, gui):
+        self.gui = gui
 
     '''
     execute the Participant Agent
@@ -517,9 +549,10 @@ class GUI():
             elif event == '_pGame_':
                 print("Start Game")
                 self.GameManager.start_game()
-                self.window["_scissor_"].Update(disabled=False)
-                self.window["_paper_"].Update(disabled=False)
-                self.window["_rock_"].Update(disabled=False)
+                if not down:
+                    self.window["_scissor_"].Update(disabled=False)
+                    self.window["_paper_"].Update(disabled=False)
+                    self.window["_rock_"].Update(disabled=False)
 
             elif event == '_rock_':
                 print("Rock")
@@ -551,25 +584,24 @@ class GameManager:
         # initialize Agents
         self.server = GameServer()
         self.gui = GUI(self)
+        self.server.set_gui(self.gui)
 
 
         self.bob = ParticipantAgent(player_id=1)
         self.bob.start()
-        '''try:
-            thread2 = threading.Thread(target=self.bob.run)
-            thread2.start()
-        except KeyboardInterrupt:
-            print('Interrupted Client')'''
-
+        self.bob.setGui(self.gui)
 
         self.alice = ParticipantAgent(player_id=2)
         self.alice.start()
-        '''try:
-            thread3 = threading.Thread(target=self.alice.run)
-            thread3.start()
-        except KeyboardInterrupt:
-            print('Interrupted Client')'''
+        self.alice.setGui(self.gui)
 
+        #start server
+        try:
+            thread = threading.Thread(target=self.server.server_loop)
+            thread.start()
+        except KeyboardInterrupt:
+            print('Interrupted server-lobby')
+        time.sleep(0.01)
 
         #TODO: position and rotation in front of each other
         return
@@ -581,17 +613,11 @@ class GameManager:
             time.sleep(1)
         except KeyboardInterrupt:
             print('Interrupted gui start')
+        self.gui.set_agents_joined(0)
 
     #start a game between bob and alice
     def start_game(self):
         #Call Agent methods for Handshake
-        try:
-            thread = threading.Thread(target=self.server.server_loop)
-            thread.start()
-        except KeyboardInterrupt:
-            print('Interrupted server-lobby')
-        time.sleep(0.01)
-
 
         try:
             thread4 = threading.Thread(target=self.bob.run_client)
@@ -708,5 +734,5 @@ if __name__ == '__main__':
     # dir(agent)
     game = GameManager()
     game.start_gui()
-    game.start_game()
+    #game.start_game()
 
