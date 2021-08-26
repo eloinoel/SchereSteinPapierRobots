@@ -133,8 +133,11 @@ class GameServer():
             sock.send(accept_msg.to_bytes(1, 'big'))
 
             #Players joined in GUI
-            if self.gui != None:
-                self.gui.set_agents_joined(len(self.lobby))
+            try:
+                if self.gui != None:
+                    self.gui.set_agents_joined(len(self.lobby))
+            except:
+                pass
 
             # start game if we have 2 players
             if len(self.lobby) >= 2:
@@ -176,9 +179,12 @@ class GameServer():
             print(c.OKGREEN + 'Server: sending results...\n' + c.ENDC)
 
             #show result in GUI
-            if self.gui != None:
-                self.gui.set_pOne(self.numberToPlay(self.plays[0][1]))
-                self.gui.set_pTwo(self.numberToPlay(self.plays[1][1]))
+            try:
+                if self.gui != None:
+                    self.gui.set_pOne(self.numberToPlay(self.plays[0][1]))
+                    self.gui.set_pTwo(self.numberToPlay(self.plays[1][1]))
+            except:
+                pass
 
             # tie
             if self.plays[0][1] == self.plays[1][1]:
@@ -233,8 +239,11 @@ class GameServer():
 
             self.reset_everything()
             #update gui
-            if self.gui != None:
-                self.gui.set_agents_joined(len(self.lobby))
+            try:
+                if self.gui != None:
+                    self.gui.set_agents_joined(len(self.lobby))
+            except:
+                pass
 
             return
 
@@ -499,9 +508,9 @@ class GUI():
             [sg.Button(button_text="Play Game",key="_pGame_")],
             [sg.Text(text="Game Result:")],
             [
-                sg.Text(text="Player 1:\t"),
+                sg.Text(text="Player:\t"),
                 sg.Text(key="_pOne_",size=(10,1)),
-                sg.Text(text="Player 2:\t"),
+                sg.Text(text="Player:\t"),
                 sg.Text(key="_pTwo_",size=(10,1))
             ]
         ]
@@ -601,7 +610,7 @@ class GameManager:
             thread.start()
         except KeyboardInterrupt:
             print('Interrupted server-lobby')
-        time.sleep(0.01)
+        time.sleep(0.03)
 
         #TODO: position and rotation in front of each other
         return

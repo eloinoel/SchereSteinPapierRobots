@@ -18,7 +18,7 @@
     # to the angle and time of the point. The first Bezier param describes the handle that controls the curve
     # preceding the point, the second describes the curve following the point.
 '''
-
+import time
 
 from pid import PIDAgent
 from keyframes import *
